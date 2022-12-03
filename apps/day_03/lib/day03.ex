@@ -40,36 +40,6 @@ defmodule Day03 do
     |> Enum.sum()
   end
 
-  def get_bags() do
-    get_input()
-    |> String.trim()
-    |> String.split("\n")
-    |> Enum.map(fn bag_items -> expand_bag(bag_items) end)
-  end
-
-  def expand_bag(bag_items_str) do
-    items = String.graphemes(bag_items_str)
-    half_point = Kernel.trunc(String.length(bag_items_str) / 2)
-
-    items
-    |> Enum.split(half_point)
-    |> then(fn {a, b} ->
-      first_half = MapSet.new(a)
-      second_half = MapSet.new(b)
-      intersection = MapSet.intersection(first_half, second_half)
-      priorities = create_item_priority_map()
-
-      %{
-        original_str: bag_items_str,
-        items: items,
-        first_half: first_half,
-        second_half: second_half,
-        intersection: intersection,
-        intersection_points: Enum.reduce(intersection, 0, fn i, acc -> priorities[i] + acc end)
-      }
-    end)
-  end
-
   def get_input() do
     __ENV__.file
     |> Path.dirname()
