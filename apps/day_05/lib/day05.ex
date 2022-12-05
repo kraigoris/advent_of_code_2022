@@ -4,7 +4,7 @@ defmodule Day05 do
 
     map
     |> move_crates(moves, &move_by_one/4)
-    |> scrap_top_crates()
+    |> top_crates_names()
   end
 
   def part2() do
@@ -12,10 +12,10 @@ defmodule Day05 do
 
     map
     |> move_crates(moves, &move_multiple/4)
-    |> scrap_top_crates()
+    |> top_crates_names()
   end
 
-  def scrap_top_crates(map) do
+  def top_crates_names(map) do
     map
     |> Enum.map(&List.last(elem(&1, 1)))
     |> Enum.filter(&(not is_nil(&1)))
@@ -27,7 +27,7 @@ defmodule Day05 do
     |> String.trim_trailing()
     |> String.split("\n\n")
     |> Enum.map(&String.split(&1, "\n"))
-    |> then(&parse_map_and_moves/1)
+    |> parse_map_and_moves()
   end
 
   def parse_map_and_moves([map_lines, moves_lines]) do
