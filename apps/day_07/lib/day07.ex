@@ -1,19 +1,39 @@
 defmodule Day07 do
   def part1() do
-    get_input()
-    |> parse_command_outputs()
-    |> create_file_cache()
-    |> then(fn cache ->
-      Enum.map(cache, fn {path, contents} ->
-        contents
-        |> Enum.map(&%{&1 | size: get_size(Path.join(path, &1.name), &1, cache)})
-        |> then(fn contents -> {path, contents} end)
-      end)
-    end)
-    |> Enum.map(fn {path, contents} -> {path, contents |> Enum.map(& &1.size) |> Enum.sum()} end)
+    get_dirs_with_sizes()
     |> Enum.filter(fn {_path, size} -> size < 100_000 end)
     |> Enum.map(fn {_, size} -> size end)
     |> Enum.sum()
+  end
+
+  def part2() do
+    dirs = get_dirs_with_sizes()
+    total_disk_space = 70_000_000
+    required_disk_space = 30_000_000
+    available_disk_space = total_disk_space - required_disk_space
+    used_disk_space = dirs |> Enum.find(fn {path, _} -> path === "/" end) |> elem(1)
+    space_to_free_up = max(used_disk_space - available_disk_space, 0)
+
+    dirs
+    |> Enum.filter(fn {_path, size} -> size >= space_to_free_up end)
+    |> Enum.map(fn {_, size} -> size end)
+    |> Enum.min()
+  end
+
+  def get_dirs_with_sizes() do
+    get_input()
+    |> parse_command_outputs()
+    |> create_file_cache()
+    |> calculate_dir_sizes()
+  end
+
+  def calculate_dir_sizes(cache) do
+    Enum.map(cache, fn {path, contents} ->
+      contents
+      |> Enum.map(&get_size(Path.join(path, &1.name), &1, cache))
+      |> Enum.sum()
+      |> then(fn size -> {path, size} end)
+    end)
   end
 
   def get_size(item_path, %{type: :tree}, cache) do
