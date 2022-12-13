@@ -4,7 +4,7 @@ defmodule Day08 do
     |> sanitize_input()
     |> parse_zone()
     |> Enum.map(fn {_i, row} ->
-      Enum.count(Enum.filter(row, fn {_j, cell} -> visible_from_outside?(cell) end))
+      Enum.count(Enum.filter(row, fn {_j, tree} -> visible_from_outside?(tree) end))
     end)
     |> Enum.sum()
   end
@@ -29,9 +29,8 @@ defmodule Day08 do
     end)
     |> Map.new()
     |> then(fn forest -> map_zone(forest, &update_safety(&1, forest)) end)
-
-    # |> then(fn forest -> map_zone(forest, &update_visibility(&1, forest)) end)
-    # |> then(fn forest -> map_zone(forest, &update_scenic_score(&1)) end)
+    |> then(fn forest -> map_zone(forest, &update_visibility(&1, forest)) end)
+    |> then(fn forest -> map_zone(forest, &update_scenic_score(&1)) end)
   end
 
   def map_zone(zone, mapper) do
@@ -61,56 +60,80 @@ defmodule Day08 do
   def update_visibility(tree, forest) do
     %{
       tree
-      | visibility_left: trees_left(tree, forest) |> Enum.count_until(&covers?(&1, tree), zone_width(forest)),
-        visibility_right: trees_right(tree, forest) |> Enum.count_until(&covers?(&1, tree), zone_width(forest)),
-        visibility_up: trees_up(tree, forest) |> Enum.count_until(&covers?(&1, tree), zone_height(forest)),
-        visibility_down: trees_down(tree, forest) |> Enum.count_until(&covers?(&1, tree), zone_height(forest))
+      | visibility_left: visibility_left(tree, forest),
+        visibility_right: visibility_right(tree, forest),
+        visibility_up: visibility_up(tree, forest),
+        visibility_down: visibility_down(tree, forest)
     }
   end
 
   def update_scenic_score(tree) do
-    params = [tree.visibility_left, tree.visibility_right, tree.visibility_up, tree.visibility_down]
-    Enum.reduce(params, 1, fn value, acc -> value * acc end)
+    score = tree.visibility_left * tree.visibility_right * tree.visibility_up * tree.visibility_down
+    %{tree | scenic_score: score}
   end
 
-  def left_safe?(tree, forest) do
-    tree.col !== 0 && Enum.any?(trees_left(tree, forest), &covers?(&1, tree))
+  def count_visible_from([], _tree) do
+    0
   end
 
-  def right_safe?(tree, forest) do
-    tree.col !== zone_width(forest) - 1 && Enum.any?(trees_right(tree, forest), &covers?(&1, tree))
+  def count_visible_from(trees, tree) do
+    Enum.reduce_while(trees, 0, fn current_tree, acc ->
+      if current_tree.height < tree.height do
+        {:cont, acc + 1}
+      else
+        {:halt, acc + 1}
+      end
+    end)
   end
 
-  def top_safe?(tree, forest) do
-    tree.row !== 0 && Enum.any?(trees_up(tree, forest), &covers?(&1, tree))
+  def visibility_left(tree, forest) do
+    tree
+    |> trees_left(forest)
+    |> Enum.reverse()
+    |> count_visible_from(tree)
   end
 
-  def bottom_safe?(tree, forest) do
-    tree.row !== zone_height(forest) - 1 && Enum.any?(trees_down(tree, forest), &covers?(&1, tree))
+  def visibility_right(tree, forest) do
+    tree
+    |> trees_right(forest)
+    |> count_visible_from(tree)
   end
 
-  def trees_up(tree, forest) do
-    for row <- 0..(tree.row - 1), do: forest[row][tree.col]
+  def visibility_up(tree, forest) do
+    tree
+    |> trees_up(forest)
+    |> Enum.reverse()
+    |> count_visible_from(tree)
   end
 
-  def trees_down(tree, forest) do
-    for row <- (tree.row + 1)..bottom_border(forest), do: forest[row][tree.col]
+  def visibility_down(tree, forest) do
+    tree
+    |> trees_down(forest)
+    |> count_visible_from(tree)
   end
 
-  def trees_left(tree, forest) do
-    for col <- 0..(tree.col - 1), do: forest[tree.row][col]
-  end
+  def left_safe?(tree, forest), do: Enum.any?(trees_left(tree, forest), &covers?(&1, tree))
+  def right_safe?(tree, forest), do: Enum.any?(trees_right(tree, forest), &covers?(&1, tree))
+  def top_safe?(tree, forest), do: Enum.any?(trees_up(tree, forest), &covers?(&1, tree))
+  def bottom_safe?(tree, forest), do: Enum.any?(trees_down(tree, forest), &covers?(&1, tree))
 
-  def trees_right(tree, forest) do
-    for col <- (tree.col + 1)..(zone_width(forest) - 1), do: forest[tree.row][col]
-  end
+  def trees_up(%{row: 0}, _forest), do: []
+  def trees_up(tree, forest), do: for(row <- 0..(tree.row - 1), do: forest[row][tree.col])
 
-  def visible_from_outside?(cell) do
-    Enum.any?([cell.left_safe, cell.right_safe, cell.top_safe, cell.bottom_safe], &(&1 === false))
-  end
+  def trees_down(%{row: row}, forest) when row == map_size(forest) - 1, do: []
+  def trees_down(tree, forest), do: for(row <- (tree.row + 1)..bottom_border(forest), do: forest[row][tree.col])
 
-  def covers?(tree1, tree2) do
-    tree1.height >= tree2.height
+  def trees_left(%{col: 0}, _forest), do: []
+  def trees_left(tree, forest), do: for(col <- 0..(tree.col - 1), do: forest[tree.row][col])
+
+  def trees_right(%{col: col}, %{0 => row}) when col == map_size(row) - 1, do: []
+  def trees_right(tree, forest), do: for(col <- (tree.col + 1)..(zone_width(forest) - 1), do: forest[tree.row][col])
+
+  def covers?(tree1, tree2), do: tree1.height >= tree2.height
+  def visible_from?(current_tree, tree), do: current_tree.height <= tree.height
+
+  def visible_from_outside?(tree) do
+    Enum.any?([tree.left_safe, tree.right_safe, tree.top_safe, tree.bottom_safe], &(&1 === false))
   end
 
   def new_tree(height, row, col) do
